@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+
+{% block title %}
+Personal Expiry Tracker
+{% endblock %}
+
+{% block content %}
+
+<main class="home-page">
+
+    <!-- HERO SECTION -->
+    <section class="home-hero">
+
+        <div class="home-hero-content">
+
+            <p class="home-label">
+                PERSONAL EXPIRY TRACKER
+            </p>
+
+            {% if session.get("user_id") %}
+
+                <h1>
+                    Welcome, {{ session.get("user_name", "User") }}
+                </h1>
+
+                <p class="home-description">
+                    Manage your important objects, check expiry dates,
+                    and stay informed before items expire.
+                </p>
+
+                <div class="home-actions">
+
+                    <a
+                        href="{{ url_for('dashboard') }}"
+                        class="home-primary-button"
+                    >
+                        Open Dashboard
+                    </a>
+
+                    <a
+                        href="{{ url_for('objects.objects_page') }}"
+                        class="home-secondary-button"
+                    >
+                        My Objects
+                    </a>
+
+                </div>
+
+            {% else %}
+
+                <h1>
+                    Never Miss an Expiry Date
+                </h1>
+
+                <p class="home-description">
+                    Store and manage your important objects,
+                    monitor expiry dates, and receive timely
+                    reminders in one place.
+                </p>
+
+                <div class="home-actions">
+
+                    <a
+                        href="{{ url_for('auth.login') }}"
+                        class="home-primary-button"
+                    >
+                        Login
+                    </a>
+
+                    <a
+                        href="{{ url_for('auth.register') }}"
+                        class="home-secondary-button"
+                    >
+                        Create Account
+                    </a>
+
+                </div>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- HERO VISUAL -->
+
+        <div class="home-hero-visual">
+
+            <div class="home-main-visual-card">
+
+                <div class="home-visual-icon">
+                    ⏰
+                </div>
+
+                <div>
+                    <h3>
+                        Stay Organized
+                    </h3>
+
+                    <p>
+                        Keep your expiry information in one place.
+                    </p>
+                </div>
+
+            </div>
+
+
+            <div class="home-visual-row">
+
+                <div class="home-mini-card">
+                    <span>📅</span>
+
+                    <div>
+                        <strong>Calendar</strong>
+                        <small>View expiry dates</small>
+                    </div>
+                </div>
+
+
+                <div class="home-mini-card">
+                    <span>🔔</span>
+
+                    <div>
+                        <strong>Reminders</strong>
+                        <small>Get timely alerts</small>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- FEATURES -->
+
+    <section class="home-features-section">
+
+        <div class="home-section-heading">
+
+            <p class="home-label">
+                APPLICATION FEATURES
+            </p>
+
+            <h2>
+                Everything You Need to Track Expiry
+            </h2>
+
+            <p>
+                Manage your objects and expiry information
+                through a simple and organized interface.
+            </p>
+
+        </div>
+
+
+        <div class="home-features">
+
+
+            <!-- FEATURE 1 -->
+
+            <div class="home-feature">
+
+                <div class="home-feature-icon">
+                    📦
+                </div>
+
+                <h3>
+                    Object Management
+                </h3>
+
+                <p>
+                    Add, view, edit, and delete your stored
+                    objects with their expiry information.
+                </p>
+
+            </div>
+
+
+            <!-- FEATURE 2 -->
+
+            <div class="home-feature">
+
+                <div class="home-feature-icon">
+                    📅
+                </div>
+
+                <h3>
+                    Expiry Calendar
+                </h3>
+
+                <p>
+                    View your object expiry dates directly
+                    on a monthly calendar.
+                </p>
+
+            </div>
+
+
+            <!-- FEATURE 3 -->
+
+            <div class="home-feature">
+
+                <div class="home-feature-icon">
+                    🔔
+                </div>
+
+                <h3>
+                    Automatic Reminders
+                </h3>
+
+                <p>
+                    Receive email reminders as an object
+                    gets closer to its expiry date.
+                </p>
+
+            </div>
+
+
+            <!-- FEATURE 4 -->
+
+            <div class="home-feature">
+
+                <div class="home-feature-icon">
+                    📊
+                </div>
+
+                <h3>
+                    Dashboard
+                </h3>
+
+                <p>
+                    View expiry statistics, status information,
+                    alerts, and object details from one dashboard.
+                </p>
+
+            </div>
+
+
+            <!-- FEATURE 5 -->
+
+            <div class="home-feature">
+
+                <div class="home-feature-icon">
+                    🔎
+                </div>
+
+                <h3>
+                    Search, Filter and Sort
+                </h3>
+
+                <p>
+                    Quickly find objects and organize them
+                    using search, filter, and sorting options.
+                </p>
+
+            </div>
+
+
+            <!-- FEATURE 6 -->
+
+            <div class="home-feature">
+
+                <div class="home-feature-icon">
+                    🖼️
+                </div>
+
+                <h3>
+                    Object Images
+                </h3>
+
+                <p>
+                    Store an image with an object to make
+                    identification easier.
+                </p>
+
+            </div>
+
+
+            <!-- FEATURE 7 -->
+
+            <div class="home-feature">
+
+                <div class="home-feature-icon">
+                    📄
+                </div>
+
+                <h3>
+                    Expiry Reports
+                </h3>
+
+                <p>
+                    Download your stored object expiry
+                    information as CSV or PDF reports.
+                </p>
+
+            </div>
+
+
+        </div>
+
+    </section>
+
+</main>
+
+{% endblock %}

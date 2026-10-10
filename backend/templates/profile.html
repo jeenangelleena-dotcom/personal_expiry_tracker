@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}
+My Profile
+{% endblock %}
+
+{% block content %}
+
+<div class="profile-page">
+
+    <div class="profile-card">
+
+        <div class="profile-header">
+            <div class="profile-icon">
+                👤
+            </div>
+            <h1>My Profile</h1>
+            <p class="profile-subtitle">Manage your account details</p>
+        </div>
+
+        <div class="profile-details">
+
+            <div class="profile-row">
+                <span class="profile-label">Name</span>
+                <strong class="profile-value">
+                    {{ user.get("name", "User") }}
+                </strong>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Email</span>
+                <strong class="profile-value">
+                    {{ user.get("email", "") }}
+                </strong>
+            </div>
+
+            <div class="profile-row">
+                <span class="profile-label">Account Status</span>
+                <strong class="profile-value profile-status-active">
+                    Active
+                </strong>
+            </div>
+
+        </div>
+
+        <a
+            href="{{ url_for('dashboard') }}"
+            class="profile-dashboard-button"
+        >
+            Go to Dashboard
+        </a>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Add Object - Personal Expiry Tracker{% endblock %}
+
+{% block content %}
+
+<div class="pet-add-page">
+
+    <div class="pet-add-container">
+
+        <div class="pet-page-heading">
+            <h1>Add New Object</h1>
+            <p>Add an item and track its expiry date.</p>
+        </div>
+
+        <form
+            class="pet-object-form"
+            method="POST"
+            action="{{ url_for('objects.create_object_page') }}"
+            enctype="multipart/form-data"
+        >
+
+            <div class="pet-form-group">
+                <label for="name">Object Name</label>
+
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    placeholder="Enter object name"
+                    value="{{ request.form.get('name', '') }}"
+                    required
+                >
+            </div>
+
+
+                <div class="pet-form-group">
+    <label for="category">Category</label>
+
+    <select id="category" name="category" required>
+        <option value="">Select Category</option>
+        <option value="Food">Food</option>
+        <option value="Medicine">Medicine</option>
+        <option value="Cosmetics">Cosmetics</option>
+        <option value="Electronics">Electronics</option>
+        <option value="Cleaning Products">Cleaning Products</option>
+        <option value="Documents">Documents</option>
+        <option value="Household Items">Household Items</option>
+        <option value="Other">Other</option>
+    </select>
+</div>
+
+
+            <div class="pet-form-group">
+                <label for="expiry_date">Expiry Date</label>
+
+                <input
+                    type="date"
+                    id="expiry_date"
+                    name="expiry_date"
+                    value="{{ request.form.get('expiry_date', '') }}"
+                    required
+                >
+            </div>
+
+
+            <div class="pet-form-group">
+                <label for="quantity">Quantity</label>
+
+                <input
+                    type="number"
+                    id="quantity"
+                    name="quantity"
+                    min="1"
+                    value="{{ request.form.get('quantity', '1') }}"
+                    required
+                >
+            </div>
+
+
+            <div class="pet-form-group">
+                <label for="notes">Notes</label>
+
+                <textarea
+                    id="notes"
+                    name="notes"
+                    placeholder="Give a description of the object (optional)"
+                >{{ request.form.get('notes', '') }}</textarea>
+            </div>
+
+
+            <div class="pet-form-group">
+
+                <label for="image">Object Image</label>
+
+                <input
+                    type="file"
+                    id="image"
+                    name="image"
+                    accept=".png,.jpg,.jpeg,.webp"
+                >
+
+                <p class="pet-file-help">
+                    Supported formats: PNG, JPG, JPEG, WEBP
+                </p>
+
+            </div>
+
+
+            <div class="pet-form-actions">
+
+                <a
+                    href="{{ url_for('objects.objects_page') }}"
+                    class="pet-cancel-button"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    type="submit"
+                    class="pet-submit-button"
+                >
+                    Add Object
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+{% endblock %}

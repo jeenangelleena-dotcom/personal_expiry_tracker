@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Expiry Calendar{% endblock %}
+
+{% block content %}
+
+<link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/calendar.css') }}"
+>
+
+<div class="pet-calendar-page">
+
+    <div class="pet-calendar-container">
+
+        <!-- Calendar heading -->
+
+        <div class="pet-calendar-header">
+
+            <div>
+                <h1>Expiry Calendar</h1>
+
+                <p>
+                    View your objects according to their expiry dates.
+                </p>
+            </div>
+
+        </div>
+
+        <div class="calendar-legend">
+    <div class="legend-item">
+        <span class="legend-color expired-color"></span>
+        <span>Expired</span>
+    </div>
+
+    <div class="legend-item">
+        <span class="legend-color today-color"></span>
+        <span>Expires Today</span>
+    </div>
+
+    <div class="legend-item">
+        <span class="legend-color warning-color"></span>
+        <span>Expiring Soon</span>
+    </div>
+
+    <div class="legend-item">
+        <span class="legend-color safe-color"></span>
+        <span>Safe</span>
+    </div>
+</div>
+
+
+        <!-- Month navigation -->
+
+        <div class="pet-calendar-controls">
+
+            <a
+                href="{{ url_for(
+                    'calendar.calendar_page',
+                    year=previous_year,
+                    month=previous_month
+                ) }}"
+                class="pet-calendar-nav"
+            >
+                ← Previous
+            </a>
+
+            <h2>
+                {{ month_name }} {{ selected_year }}
+            </h2>
+
+            <a
+                href="{{ url_for(
+                    'calendar.calendar_page',
+                    year=next_year,
+                    month=next_month
+                ) }}"
+                class="pet-calendar-nav"
+            >
+                Next →
+            </a>
+
+        </div>
+
+
+
+        <!-- Calendar -->
+
+        <div class="pet-calendar">
+
+            <div class="pet-calendar-weekdays">
+
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+
+            </div>
+
+
+            <div class="pet-calendar-grid">
+
+                {% for week in calendar_data %}
+
+                    {% for day in week %}
+
+                        {% if day == 0 %}
+
+                            <div class="pet-calendar-day empty-day"></div>
+
+                        {% else %}
+
+                            {% set current_date = "%04d-%02d-%02d"|format(
+                                selected_year,
+                                selected_month,
+                                day
+                            ) %}
+
+                            {% set day_objects = objects_by_date.get(
+                                current_date,
+                                []
+                            ) %}
+
+
+                            <div
+                                class="
+                                    pet-calendar-day
+                                    {% if current_date == today.strftime('%Y-%m-%d') %}
+                                        current-day
+                                    {% endif %}
+                                "
+                            >
+
+                                <div class="pet-calendar-day-number">
+                                    {{ day }}
+                                </div>
+
+
+                                {% for object in day_objects %}
+
+                                    {% if object.days_remaining < 0 %}
+
+                                        {% set status_class =
+                                            "expired-event" %}
+
+                                    {% elif object.days_remaining == 0 %}
+
+                                        {% set status_class =
+                                            "today-event" %}
+
+                                    {% elif object.days_remaining <= 30 %}
+
+                                        {% set status_class =
+                                            "warning-event" %}
+
+                                    {% else %}
+
+                                        {% set status_class =
+                                            "safe-event" %}
+
+                                    {% endif %}
+
+
+                                    <div
+                                        class="
+                                            pet-calendar-event
+                                            {{ status_class }}
+                                        "
+                                        title="{{ object.name }}"
+                                    >
+                                        {{ object.name }}
+                                    </div>
+
+                                {% endfor %}
+
+                            </div>
+
+                        {% endif %}
+
+                    {% endfor %}
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,440 @@
+{% extends "base.html" %}
+
+{% block title %}My Objects{% endblock %}
+
+{% block content %}
+
+<div class="pet-objects-page">
+
+    <div class="pet-objects-container">
+
+        <div class="pet-page-heading">
+            <div>
+                <h1>My Objects</h1>
+                <p>View and manage your stored objects</p>
+            </div>
+
+            <a href="{{ url_for('objects.add_object_page') }}" class="pet-add-button">
+                + Add Object
+            </a>
+        </div>
+
+
+        <!-- Search, Filter and Sort -->
+
+        <div class="object-controls">
+
+            <div class="object-search">
+                <label for="objectSearch">Search</label>
+                <input
+                    type="text"
+                    id="objectSearch"
+                    placeholder="Search object name..."
+                >
+            </div>
+
+
+            <div class="object-filter">
+                <label for="categoryFilter">Category</label>
+
+                <select id="categoryFilter">
+                    <option value="all">All Categories</option>
+
+                    {% set categories = [] %}
+
+                    {% for object in objects %}
+                        {% if object.category and object.category not in categories %}
+                            {% set _ = categories.append(object.category) %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% for category in categories|sort %}
+                        <option value="{{ category|lower }}">
+                            {{ category }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <div class="object-filter">
+                <label for="statusFilter">Expiry Status</label>
+
+                <select id="statusFilter">
+                    <option value="all">All Status</option>
+                    <option value="expired">Expired</option>
+                    <option value="today">Expires Today</option>
+                    <option value="soon">Expiring Soon</option>
+                    <option value="safe">Safe</option>
+                </select>
+            </div>
+
+
+            <div class="object-sort">
+                <label for="sortObjects">Sort By</label>
+
+                <select id="sortObjects">
+                    <option value="default">Default</option>
+                    <option value="name-asc">Name A to Z</option>
+                    <option value="name-desc">Name Z to A</option>
+                    <option value="expiry-asc">Expiry Date: Earliest</option>
+                    <option value="expiry-desc">Expiry Date: Latest</option>
+                    <option value="category-asc">Category A to Z</option>
+                    <option value="category-desc">Category Z to A</option>
+                </select>
+            </div>
+
+        </div>
+
+
+        <div id="noResultsMessage" class="pet-empty-state" style="display: none;">
+            <h3>No objects found</h3>
+            <p>Try changing the search, filter, or sorting option.</p>
+        </div>
+
+
+        <div class="pet-objects-grid" id="objectsGrid">
+
+            {% for object in objects %}
+
+            <div
+                class="pet-object-card object-card-item"
+                data-name="{{ object.name|lower }}"
+                data-category="{{ object.category|default('', true)|lower }}"
+                data-expiry="{{ object.expiry_date }}"
+                data-days="{{ object.days_remaining }}"
+                data-index="{{ loop.index }}"
+            >
+
+                {% if object.image %}
+
+                <div class="pet-object-image-container">
+
+                    <img
+                        src="{{ url_for('upload.uploaded_file', filename=object.image) }}"
+                        alt="{{ object.name }}"
+                        class="pet-object-image"
+                    >
+
+                </div>
+
+                {% endif %}
+
+
+                <div class="pet-object-details">
+
+                    <h3>{{ object.name }}</h3>
+
+                    <p>
+                        <strong>Category:</strong>
+                        {{ object.category or "Not specified" }}
+                    </p>
+
+                    <p>
+                        <strong>Expiry Date:</strong>
+                        {{ object.expiry_date }}
+                    </p>
+
+                    <p>
+                        <strong>Quantity:</strong>
+                        {{ object.quantity or "Not specified" }}
+                    </p>
+
+                    {% if object.notes %}
+
+                    <p>
+                        <strong>Notes:</strong>
+                        {{ object.notes }}
+                    </p>
+
+                    {% endif %}
+
+
+                    <p>
+                        <strong>Status:</strong>
+
+                        {% if object.days_remaining < 0 %}
+                            <span class="object-status expired-status">
+                                Expired
+                            </span>
+
+                        {% elif object.days_remaining == 0 %}
+                            <span class="object-status today-status">
+                                Expires Today
+                            </span>
+
+                        {% elif object.days_remaining <= 30 %}
+                            <span class="object-status soon-status">
+                                Expiring Soon
+                            </span>
+
+                        {% else %}
+                            <span class="object-status safe-status">
+                                Safe
+                            </span>
+                        {% endif %}
+
+                    </p>
+
+
+                    <div class="pet-object-actions">
+
+                        <button
+                            type="button"
+                            class="pet-edit-button"
+                            onclick="showEditForm('{{ object._id }}')"
+                        >
+                            Edit
+                        </button>
+
+                        <button
+                            type="button"
+                            class="pet-delete-button"
+                            onclick="deleteObject('{{ object._id }}')"
+                        >
+                            Delete
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            {% endfor %}
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const searchInput = document.getElementById("objectSearch");
+    const categoryFilter = document.getElementById("categoryFilter");
+    const statusFilter = document.getElementById("statusFilter");
+    const sortSelect = document.getElementById("sortObjects");
+    const objectsGrid = document.getElementById("objectsGrid");
+    const noResultsMessage = document.getElementById("noResultsMessage");
+
+
+    function getStatus(days) {
+
+        days = Number(days);
+
+        if (days < 0) {
+            return "expired";
+        }
+
+        if (days === 0) {
+            return "today";
+        }
+
+        if (days <= 30) {
+            return "soon";
+        }
+
+        return "safe";
+    }
+
+
+    function applyObjectControls() {
+
+        const searchText =
+            searchInput.value.trim().toLowerCase();
+
+        const selectedCategory =
+            categoryFilter.value.toLowerCase();
+
+        const selectedStatus =
+            statusFilter.value.toLowerCase();
+
+        const cards =
+            Array.from(
+                objectsGrid.querySelectorAll(".object-card-item")
+            );
+
+
+        let visibleCards = [];
+
+
+        cards.forEach(function (card) {
+
+            const name =
+                card.dataset.name || "";
+
+            const category =
+                card.dataset.category || "";
+
+            const days =
+                Number(card.dataset.days);
+
+            const status =
+                getStatus(days);
+
+
+            const matchesSearch =
+                name.includes(searchText);
+
+            const matchesCategory =
+                selectedCategory === "all" ||
+                category === selectedCategory;
+
+            const matchesStatus =
+                selectedStatus === "all" ||
+                status === selectedStatus;
+
+
+            if (
+                matchesSearch &&
+                matchesCategory &&
+                matchesStatus
+            ) {
+
+                card.style.display = "";
+
+                visibleCards.push(card);
+
+            } else {
+
+                card.style.display = "none";
+
+            }
+
+        });
+
+
+        sortCards(visibleCards);
+
+
+        if (visibleCards.length === 0) {
+
+            noResultsMessage.style.display = "block";
+
+        } else {
+
+            noResultsMessage.style.display = "none";
+
+        }
+
+    }
+
+
+    function sortCards(cards) {
+
+        const sortValue =
+            sortSelect.value;
+
+
+        cards.sort(function (a, b) {
+
+            const nameA =
+                a.dataset.name || "";
+
+            const nameB =
+                b.dataset.name || "";
+
+            const categoryA =
+                a.dataset.category || "";
+
+            const categoryB =
+                b.dataset.category || "";
+
+            const expiryA =
+                a.dataset.expiry || "";
+
+            const expiryB =
+                b.dataset.expiry || "";
+
+
+            if (sortValue === "name-asc") {
+
+                return nameA.localeCompare(nameB);
+
+            }
+
+
+            if (sortValue === "name-desc") {
+
+                return nameB.localeCompare(nameA);
+
+            }
+
+
+            if (sortValue === "expiry-asc") {
+
+                return expiryA.localeCompare(expiryB);
+
+            }
+
+
+            if (sortValue === "expiry-desc") {
+
+                return expiryB.localeCompare(expiryA);
+
+            }
+
+
+            if (sortValue === "category-asc") {
+
+                return categoryA.localeCompare(categoryB);
+
+            }
+
+
+            if (sortValue === "category-desc") {
+
+                return categoryB.localeCompare(categoryA);
+
+            }
+
+
+            return (
+                Number(a.dataset.index) -
+                Number(b.dataset.index)
+            );
+
+        });
+
+
+        cards.forEach(function (card) {
+
+            objectsGrid.appendChild(card);
+
+        });
+
+    }
+
+
+    searchInput.addEventListener(
+        "input",
+        applyObjectControls
+    );
+
+
+    categoryFilter.addEventListener(
+        "change",
+        applyObjectControls
+    );
+
+
+    statusFilter.addEventListener(
+        "change",
+        applyObjectControls
+    );
+
+
+    sortSelect.addEventListener(
+        "change",
+        applyObjectControls
+    );
+
+});
+
+</script>
+
+{% endblock %}

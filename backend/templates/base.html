@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {% block title %}
+        Personal Expiry Tracker
+        {% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='css/style.css') }}"
+    >
+
+</head>
+
+<body>
+
+    <!-- ================= NAVBAR ================= -->
+
+    <nav class="navbar">
+
+        <div class="navbar-container">
+
+            <a
+                href="{{ url_for('home') }}"
+                class="navbar-logo"
+            >
+                <span class="navbar-logo-icon">⏰</span>
+                <span>Expiry Tracker</span>
+            </a>
+
+
+            <div class="navbar-links">
+
+                <a href="{{ url_for('home') }}">
+                    Home
+                </a>
+
+                {% if session.get("user_id") %}
+
+                    <a href="{{ url_for('dashboard') }}">
+                        Dashboard
+                    </a>
+
+                    <a href="{{ url_for('objects.add_object_page') }}">
+                        Add Object
+                    </a>
+
+                    <a href="{{ url_for('objects.objects_page') }}">
+                        My Objects
+                    </a>
+                    <a href="{{ url_for('calendar.calendar_page') }}">Calendar</a>
+
+                {% endif %}
+
+            </div>
+
+
+            <!-- ACCOUNT AREA -->
+
+            <div class="navbar-account">
+
+                {% if session.get("user_id") %}
+
+                    <div class="navbar-user">
+
+                        <span class="navbar-user-icon">
+                            👤
+                        </span>
+
+                        <span class="navbar-user-name">
+                            {{ session.get("user_name", "User") }}
+                        </span>
+
+                    </div>
+
+
+                    <a
+                        href="{{ url_for('auth.profile') }}"
+                        class="navbar-profile"
+                    >
+                        Profile
+                    </a>
+
+
+                    <a
+                        href="{{ url_for('auth.logout') }}"
+                        class="navbar-logout"
+                    >
+                        Logout
+                    </a>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </nav>
+
+
+    <!-- ================= FLASH MESSAGES ================= -->
+
+    <div class="flash-container">
+
+        {% with messages = get_flashed_messages(
+            with_categories=true
+        ) %}
+
+            {% if messages %}
+
+                {% for category, message in messages %}
+
+                    <div class="flash-message {{ category }}">
+                        {{ message }}
+                    </div>
+
+                {% endfor %}
+
+            {% endif %}
+
+        {% endwith %}
+
+    </div>
+
+
+    <!-- ================= PAGE CONTENT ================= -->
+
+    <main>
+
+        {% block content %}
+        {% endblock %}
+
+    </main>
+
+
+    <!-- ================= FOOTER ================= -->
+
+    <footer class="site-footer">
+
+        <p>
+            © 2026 Personal Expiry Tracker
+        </p>
+
+    </footer>
+
+</body>
+
+</html>

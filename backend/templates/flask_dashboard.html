@@ -1,0 +1,1585 @@
+{% extends "base.html" %}
+
+{% block title %}
+Dashboard - Personal Expiry Tracker
+{% endblock %}
+
+
+{% block content %}
+
+<div class="dashboard-container">
+
+
+    <!-- ==================================================
+         DASHBOARD HEADER
+    ================================================== -->
+
+    <div class="dashboard-header">
+
+        <div>
+
+            <p class="dashboard-label">
+                PERSONAL EXPIRY TRACKER
+            </p>
+
+            <h1>
+    Welcome, {{ session.get("user_name", "User") }}
+            </h1>
+
+            <p class="dashboard-subtitle">
+                Monitor your personal items, expiry dates,
+                and upcoming reminders.
+            </p>
+
+        </div>
+        
+<div class="dashboard-report-buttons">
+
+    <a
+        href="{{ url_for('reports.download_csv') }}"
+        class="report-download-btn csv-download-btn"
+    >
+        Download CSV
+    </a>
+
+    <a
+        href="{{ url_for('reports.download_pdf') }}"
+        class="report-download-btn pdf-download-btn"
+    >
+        Download PDF
+    </a>
+
+
+
+        <div class="dashboard-actions">
+
+            <a
+                href="{{ url_for('objects.add_object_page') }}"
+                class="primary-dashboard-button"
+            >
+                + Add Object
+            </a>
+
+
+            
+
+        </div>
+
+    </div>
+    </div>
+
+
+
+    <!-- ==================================================
+         STATISTICS
+    ================================================== -->
+
+    <div class="stats-grid">
+
+
+        <!-- TOTAL -->
+
+        <div class="stat-card total-card">
+
+            <div class="stat-icon">
+                📦
+            </div>
+
+            <div>
+
+                <p>
+                    Total Objects
+                </p>
+
+                <h2 id="totalObjects">
+                    0
+                </h2>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- SAFE -->
+
+        <div class="stat-card safe-card">
+
+            <div class="stat-icon">
+                ✅
+            </div>
+
+            <div>
+
+                <p>
+                    Safe Objects
+                </p>
+
+                <h2 id="safeObjects">
+                    0
+                </h2>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- EXPIRING -->
+
+        <div class="stat-card warning-card">
+
+            <div class="stat-icon">
+                ⏰
+            </div>
+
+            <div>
+
+                <p>
+                    Expiring Soon
+                </p>
+
+                <h2 id="expiringObjects">
+                    0
+                </h2>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- EXPIRED -->
+
+        <div class="stat-card danger-card">
+
+            <div class="stat-icon">
+                🔴
+            </div>
+
+            <div>
+
+                <p>
+                    Expired
+                </p>
+
+                <h2 id="expiredObjects">
+                    0
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ==================================================
+         CHARTS
+    ================================================== -->
+
+    <div class="dashboard-grid">
+
+
+        <!-- CATEGORY CHART -->
+
+        <div class="dashboard-card chart-card">
+
+            <div class="card-heading">
+
+                <div>
+
+                    <h2>
+                        Objects by Category
+                    </h2>
+
+                    <p>
+                        Distribution of your stored objects
+                    </p>
+
+                </div>
+
+                <span class="report-icon">
+                    📊
+                </span>
+
+            </div>
+
+
+            <div class="chart-container">
+
+                <canvas
+                    id="categoryChart"
+                ></canvas>
+
+                <div
+                    id="categoryEmpty"
+                    class="chart-empty"
+                    style="display:none;"
+                >
+                    Add objects to see category
+                    distribution.
+                </div>
+
+            </div>
+
+        </div>
+
+
+
+        <!-- EXPIRY STATUS CHART -->
+
+        <div class="dashboard-card chart-card">
+
+            <div class="card-heading">
+
+                <div>
+
+                    <h2>
+                        Expiry Status
+                    </h2>
+
+                    <p>
+                        Current expiry condition
+                    </p>
+
+                </div>
+
+                <span class="report-icon">
+                    📈
+                </span>
+
+            </div>
+
+
+            <div class="chart-container">
+
+                <canvas
+                    id="expiryChart"
+                ></canvas>
+
+                <div
+                    id="expiryEmpty"
+                    class="chart-empty"
+                    style="display:none;"
+                >
+                    Add objects to see expiry
+                    statistics.
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ==================================================
+         EXPIRY REPORT
+    ================================================== -->
+
+    <div class="dashboard-card report-card">
+
+
+        <div class="card-heading">
+
+            <div>
+
+                <h2>
+                    Expiry Report
+                </h2>
+
+                <p>
+                    Overview of your personal objects
+                </p>
+
+            </div>
+
+
+            <button
+                type="button"
+                class="refresh-button"
+                onclick="loadDashboard()"
+            >
+                ↻ Refresh
+            </button>
+
+        </div>
+
+
+
+        <!-- SEARCH -->
+
+        <div class="search-box">
+
+            <input
+                type="text"
+                id="objectSearch"
+                placeholder="Search object or category..."
+                oninput="filterObjects()"
+            >
+
+        </div>
+
+
+
+        <!-- TABLE -->
+
+        <div class="table-container">
+
+            <table>
+
+                <thead>
+
+                    <tr>
+
+                        <th>
+                            Object
+                        </th>
+
+                        <th>
+                            Category
+                        </th>
+
+                        <th>
+                            Quantity
+                        </th>
+
+                        <th>
+                            Expiry Date
+                        </th>
+
+                        <th>
+                            Status
+                        </th>
+
+                        <th>
+                            Days Left
+                        </th>
+
+                    </tr>
+
+                </thead>
+
+
+                <tbody id="objectsTable">
+
+                    <tr>
+
+                        <td
+                            colspan="6"
+                            class="loading-row"
+                        >
+                            Loading objects...
+                        </td>
+
+                    </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ==================================================
+         EXPIRY ALERTS
+    ================================================== -->
+
+    <div class="dashboard-card alerts-card">
+
+
+        <div class="card-heading">
+
+            <div>
+
+                <h2>
+                    Expiry Alerts
+                </h2>
+
+                <p>
+                    Items that require attention
+                </p>
+
+            </div>
+
+
+            <span class="report-icon">
+                🔔
+            </span>
+
+        </div>
+
+
+        <div id="alertsContainer">
+
+            <div class="empty-alert">
+                Checking expiry dates...
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <!-- ==================================================
+         QUICK ACTIONS
+    ================================================== -->
+
+    <div class="quick-actions">
+
+
+        <a
+            href="{{ url_for('objects.objects_page') }}"
+            class="quick-action"
+        >
+
+            <span>
+                📦
+            </span>
+
+            <div>
+
+                <strong>
+                    Manage Objects
+                </strong>
+
+                <small>
+                    Add, view, edit and delete objects
+                </small>
+
+            </div>
+
+        </a>
+
+
+
+        <a
+            href="{{ url_for('objects.objects_page') }}"
+            class="quick-action"
+        >
+
+            <span>
+                📷
+            </span>
+
+            <div>
+
+                <strong>
+                    Add Product Image
+                </strong>
+
+                <small>
+                    Upload an image with your object
+                </small>
+
+            </div>
+
+        </a>
+
+
+
+        <div class="quick-action">
+
+            <span>
+                📑
+            </span>
+
+            <div>
+
+                <strong>
+                    Expiry Report
+                </strong>
+
+                <small>
+                    Review all expiry information
+                </small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+
+<!-- ==================================================
+     CHART.JS
+================================================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+
+
+<script>
+
+
+// ==================================================
+// GLOBAL VARIABLES
+// ==================================================
+
+let allObjects = [];
+
+let categoryChart = null;
+
+let expiryChart = null;
+
+
+
+// ==================================================
+// LOAD DASHBOARD
+// ==================================================
+
+async function loadDashboard() {
+
+    try {
+
+        const response = await fetch(
+            "/api/objects"
+        );
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                "Unable to load objects."
+            );
+
+        }
+
+
+        const data =
+            await response.json();
+
+
+        allObjects =
+            data.objects || [];
+
+
+        updateStatistics();
+
+        updateCharts();
+
+        displayObjects(
+            allObjects
+        );
+
+        displayAlerts();
+
+    }
+
+    catch (error) {
+
+        console.error(
+            "Dashboard error:",
+            error
+        );
+
+
+        document.getElementById(
+            "objectsTable"
+        ).innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="6"
+                    class="error-row"
+                >
+                    Unable to load dashboard data.
+                </td>
+
+            </tr>
+
+        `;
+
+    }
+
+}
+
+
+
+// ==================================================
+// CALCULATE DAYS LEFT
+// ==================================================
+
+function getDaysLeft(expiryDate) {
+
+    if (!expiryDate) {
+
+        return null;
+
+    }
+
+
+    const today =
+        new Date();
+
+
+    today.setHours(
+        0,
+        0,
+        0,
+        0
+    );
+
+
+    const expiry =
+        new Date(
+            expiryDate + "T00:00:00"
+        );
+
+
+    expiry.setHours(
+        0,
+        0,
+        0,
+        0
+    );
+
+
+    const difference =
+        expiry.getTime() -
+        today.getTime();
+
+
+    return Math.round(
+        difference /
+        (1000 * 60 * 60 * 24)
+    );
+
+}
+
+
+
+// ==================================================
+// GET STATUS
+// ==================================================
+
+function getStatus(daysLeft) {
+
+    if (daysLeft === null) {
+
+        return "Unknown";
+
+    }
+
+
+    if (daysLeft < 0) {
+
+        return "Expired";
+
+    }
+
+
+    if (daysLeft === 0) {
+
+        return "Expires Today";
+
+    }
+
+
+    if (daysLeft <= 30) {
+
+        return "Expiring Soon";
+
+    }
+
+
+    return "Safe";
+
+}
+
+
+
+// ==================================================
+// UPDATE STATISTICS
+// ==================================================
+
+function updateStatistics() {
+
+    let safe = 0;
+
+    let expiring = 0;
+
+    let expired = 0;
+
+
+    allObjects.forEach(
+        object => {
+
+            const daysLeft =
+                getDaysLeft(
+                    object.expiry_date
+                );
+
+
+            if (daysLeft < 0) {
+
+                expired++;
+
+            }
+
+            else if (
+                daysLeft <= 30
+            ) {
+
+                expiring++;
+
+            }
+
+            else {
+
+                safe++;
+
+            }
+
+        }
+    );
+
+
+    document.getElementById(
+        "totalObjects"
+    ).textContent =
+        allObjects.length;
+
+
+    document.getElementById(
+        "safeObjects"
+    ).textContent =
+        safe;
+
+
+    document.getElementById(
+        "expiringObjects"
+    ).textContent =
+        expiring;
+
+
+    document.getElementById(
+        "expiredObjects"
+    ).textContent =
+        expired;
+
+}
+
+
+
+// ==================================================
+// UPDATE CHARTS
+// ==================================================
+
+function updateCharts() {
+
+    const categories = {};
+
+
+    let safe = 0;
+
+    let expiring = 0;
+
+    let expired = 0;
+
+
+    allObjects.forEach(
+        object => {
+
+
+            // ------------------------------
+            // CATEGORY
+            // ------------------------------
+
+            const category =
+                object.category ||
+                "Other";
+
+
+            categories[category] =
+                (
+                    categories[category] ||
+                    0
+                ) + 1;
+
+
+
+            // ------------------------------
+            // EXPIRY
+            // ------------------------------
+
+            const daysLeft =
+                getDaysLeft(
+                    object.expiry_date
+                );
+
+
+            if (daysLeft < 0) {
+
+                expired++;
+
+            }
+
+            else if (
+                daysLeft <= 30
+            ) {
+
+                expiring++;
+
+            }
+
+            else {
+
+                safe++;
+
+            }
+
+        }
+    );
+
+
+
+    // ==================================================
+    // CATEGORY CHART
+    // ==================================================
+
+    const categoryCanvas =
+        document.getElementById(
+            "categoryChart"
+        );
+
+
+    const categoryEmpty =
+        document.getElementById(
+            "categoryEmpty"
+        );
+
+
+    if (categoryChart) {
+
+        categoryChart.destroy();
+
+        categoryChart = null;
+
+    }
+
+
+    if (
+        Object.keys(
+            categories
+        ).length === 0
+    ) {
+
+        categoryCanvas.style.display =
+            "none";
+
+        categoryEmpty.style.display =
+            "flex";
+
+    }
+
+    else {
+
+        categoryCanvas.style.display =
+            "block";
+
+        categoryEmpty.style.display =
+            "none";
+
+
+        categoryChart =
+            new Chart(
+                categoryCanvas,
+                {
+
+                    type: "doughnut",
+
+                    data: {
+
+                        labels:
+                            Object.keys(
+                                categories
+                            ),
+
+                        datasets: [
+
+                            {
+
+                                label:
+                                    "Objects",
+
+                                data:
+                                    Object.values(
+                                        categories
+                                    ),
+
+                                borderWidth: 2
+
+                            }
+
+                        ]
+
+                    },
+
+                    options: {
+
+                        responsive: true,
+
+                        maintainAspectRatio: false,
+
+                        plugins: {
+
+                            legend: {
+
+                                position:
+                                    "bottom"
+
+                            }
+
+                        }
+
+                    }
+
+                }
+            );
+
+    }
+
+
+
+    // ==================================================
+    // EXPIRY STATUS CHART
+    // ==================================================
+
+    const expiryCanvas =
+        document.getElementById(
+            "expiryChart"
+        );
+
+
+    const expiryEmpty =
+        document.getElementById(
+            "expiryEmpty"
+        );
+
+
+    if (expiryChart) {
+
+        expiryChart.destroy();
+
+        expiryChart = null;
+
+    }
+
+
+    if (
+        allObjects.length === 0
+    ) {
+
+        expiryCanvas.style.display =
+            "none";
+
+        expiryEmpty.style.display =
+            "flex";
+
+    }
+
+    else {
+
+        expiryCanvas.style.display =
+            "block";
+
+        expiryEmpty.style.display =
+            "none";
+
+
+        expiryChart =
+            new Chart(
+                expiryCanvas,
+                {
+
+                    type: "bar",
+
+                    data: {
+
+                        labels: [
+
+                            "Safe",
+
+                            "Expiring Soon",
+
+                            "Expired"
+
+                        ],
+
+                        datasets: [
+
+                            {
+
+                                label:
+                                    "Number of Objects",
+
+                                data: [
+
+                                    safe,
+
+                                    expiring,
+
+                                    expired
+
+                                ],
+
+                                borderWidth: 1
+
+                            }
+
+                        ]
+
+                    },
+
+                    options: {
+
+                        responsive: true,
+
+                        maintainAspectRatio: false,
+
+                        scales: {
+
+                            y: {
+
+                                beginAtZero:
+                                    true,
+
+                                ticks: {
+
+                                    precision:
+                                        0
+
+                                }
+
+                            }
+
+                        }
+
+                    }
+
+                }
+            );
+
+    }
+
+}
+
+
+
+// ==================================================
+// DISPLAY OBJECTS
+// ==================================================
+
+function displayObjects(
+    objects
+) {
+
+    const table =
+        document.getElementById(
+            "objectsTable"
+        );
+
+
+    if (
+        objects.length === 0
+    ) {
+
+        table.innerHTML = `
+
+            <tr>
+
+                <td
+                    colspan="6"
+                    class="empty-row"
+                >
+                    No objects added yet.
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+
+    }
+
+
+    table.innerHTML =
+        objects.map(
+            object => {
+
+
+                const daysLeft =
+                    getDaysLeft(
+                        object.expiry_date
+                    );
+
+
+                const status =
+                    getStatus(
+                        daysLeft
+                    );
+
+
+                let statusClass =
+                    "status-safe";
+
+
+                if (
+                    status ===
+                    "Expired"
+                ) {
+
+                    statusClass =
+                        "status-expired";
+
+                }
+
+                else if (
+                    status ===
+                    "Expires Today"
+                ) {
+
+                    statusClass =
+                        "status-expired";
+
+                }
+
+                else if (
+                    status ===
+                    "Expiring Soon"
+                ) {
+
+                    statusClass =
+                        "status-warning";
+
+                }
+
+
+                let daysText;
+
+
+                if (
+                    daysLeft === null
+                ) {
+
+                    daysText =
+                        "—";
+
+                }
+
+                else if (
+                    daysLeft < 0
+                ) {
+
+                    daysText =
+                        Math.abs(
+                            daysLeft
+                        ) +
+                        " days ago";
+
+                }
+
+                else if (
+                    daysLeft === 0
+                ) {
+
+                    daysText =
+                        "Today";
+
+                }
+
+                else {
+
+                    daysText =
+                        daysLeft +
+                        " days";
+
+                }
+
+
+                return `
+
+                    <tr>
+
+                        <td>
+
+                            <strong>
+                                ${escapeHtml(
+                                    object.name
+                                )}
+                            </strong>
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHtml(
+                                object.category ||
+                                "Other"
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHtml(
+                                String(
+                                    object.quantity ||
+                                    0
+                                )
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            ${escapeHtml(
+                                object.expiry_date ||
+                                "—"
+                            )}
+
+                        </td>
+
+
+                        <td>
+
+                            <span
+                                class="
+                                    status-badge
+                                    ${statusClass}
+                                "
+                            >
+
+                                ${status}
+
+                            </span>
+
+                        </td>
+
+
+                        <td>
+
+                            ${daysText}
+
+                        </td>
+
+                    </tr>
+
+                `;
+
+            }
+        ).join("");
+
+}
+
+
+
+// ==================================================
+// FILTER OBJECTS
+// ==================================================
+
+function filterObjects() {
+
+    const searchInput =
+        document.getElementById(
+            "objectSearch"
+        );
+
+
+    const search =
+        searchInput.value
+            .trim()
+            .toLowerCase();
+
+
+    if (!search) {
+
+        displayObjects(
+            allObjects
+        );
+
+        return;
+
+    }
+
+
+    const filtered =
+        allObjects.filter(
+            object => {
+
+                const name =
+                    (
+                        object.name ||
+                        ""
+                    ).toLowerCase();
+
+
+                const category =
+                    (
+                        object.category ||
+                        ""
+                    ).toLowerCase();
+
+
+                return (
+                    name.includes(
+                        search
+                    ) ||
+                    category.includes(
+                        search
+                    )
+                );
+
+            }
+        );
+
+
+    displayObjects(
+        filtered
+    );
+
+}
+
+
+
+// ==================================================
+// EXPIRY ALERTS
+// ==================================================
+
+function displayAlerts() {
+
+    const container =
+        document.getElementById(
+            "alertsContainer"
+        );
+
+
+    const importantObjects =
+        allObjects
+            .map(
+                object => ({
+
+                    ...object,
+
+                    daysLeft:
+                        getDaysLeft(
+                            object.expiry_date
+                        )
+
+                })
+            )
+            .filter(
+                object =>
+                    object.daysLeft !== null &&
+                    object.daysLeft <= 30
+            )
+            .sort(
+                (a, b) =>
+                    a.daysLeft -
+                    b.daysLeft
+            );
+
+
+    if (
+        importantObjects.length === 0
+    ) {
+
+        container.innerHTML = `
+
+            <div class="success-alert">
+
+                <span>
+                    ✓
+                </span>
+
+                <div>
+
+                    <strong>
+                        No immediate expiry alerts
+                    </strong>
+
+                    <p>
+                        Your objects are currently
+                        outside the 30-day warning period.
+                    </p>
+
+                </div>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    container.innerHTML =
+        importantObjects.map(
+            object => {
+
+
+                const expired =
+                    object.daysLeft < 0;
+
+
+                const today =
+                    object.daysLeft === 0;
+
+
+                let message;
+
+
+                if (expired) {
+
+                    message =
+                        `${escapeHtml(
+                            object.name
+                        )} has already expired.`;
+
+                }
+
+                else if (today) {
+
+                    message =
+                        `${escapeHtml(
+                            object.name
+                        )} expires today.`;
+
+                }
+
+                else {
+
+                    message =
+                        `${escapeHtml(
+                            object.name
+                        )} expires in ${
+                            object.daysLeft
+                        } day(s).`;
+
+                }
+
+
+                return `
+
+                    <div
+                        class="
+                            expiry-alert
+                            ${
+                                expired ||
+                                today
+                                    ? "alert-danger"
+                                    : "alert-warning"
+                            }
+                        "
+                    >
+
+                        <span class="alert-icon">
+
+                            ${
+                                expired ||
+                                today
+                                    ? "🔴"
+                                    : "⚠️"
+                            }
+
+                        </span>
+
+
+                        <div>
+
+                            <strong>
+                                ${message}
+                            </strong>
+
+                            <p>
+
+                                Category:
+                                ${
+                                    escapeHtml(
+                                        object.category ||
+                                        "Other"
+                                    )
+                                }
+
+                                &nbsp; • &nbsp;
+
+                                Expiry:
+                                ${
+                                    escapeHtml(
+                                        object.expiry_date ||
+                                        "—"
+                                    )
+                                }
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            }
+        ).join("");
+
+}
+
+
+
+// ==================================================
+// HTML ESCAPE
+// ==================================================
+
+function escapeHtml(
+    value
+) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+
+    div.textContent =
+        value;
+
+
+    return div.innerHTML;
+
+}
+
+
+
+// ==================================================
+// INITIAL LOAD
+// ==================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+        loadDashboard();
+
+    }
+);
+
+</script>
+
+{% endblock %}
