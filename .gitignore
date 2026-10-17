@@ -1,9 +1,33 @@
+# Virtual Environments
 venv/
+env/
+.venv/
+ENV/
 
+# Environment Variables
 .env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
 
+# Python Caches & Bytecode
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
 
+# Local Uploads
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Vercel Project Output
+.vercel/
+
+# OS Specific
+.DS_Store
+Thumbs.db
