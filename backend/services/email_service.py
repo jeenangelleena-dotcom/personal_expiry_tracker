@@ -1,45 +1,51 @@
 import smtplib
+import logging
 from email.message import EmailMessage
 from flask import current_app
+
+logger = logging.getLogger(__name__)
 
 
 def send_email(to_email, subject, message):
     """
     Send a plain-text email.
+    Returns a status dictionary without exposing credentials.
     """
-
     mail_server = current_app.config.get("MAIL_SERVER")
     mail_port = current_app.config.get("MAIL_PORT")
     mail_username = current_app.config.get("MAIL_USERNAME")
     mail_password = current_app.config.get("MAIL_PASSWORD")
 
-    if not mail_server:
-        raise ValueError("MAIL_SERVER is not configured.")
+    if not mail_server or not mail_username or not mail_password:
+        missing = []
+        if not mail_server:
+            missing.append("MAIL_SERVER")
+        if not mail_username:
+            missing.append("MAIL_USERNAME")
+        if not mail_password:
+            missing.append("MAIL_PASSWORD")
+        error_msg = f"Email service is not fully configured. Missing: {', '.join(missing)}"
+        logger.warning(error_msg)
+        return {"status": "error", "message": error_msg}
 
-    if not mail_username:
-        raise ValueError("MAIL_USERNAME is not configured.")
+    try:
+        email = EmailMessage()
+        email["From"] = mail_username
+        email["To"] = to_email
+        email["Subject"] = subject
+        email.set_content(message)
 
-    if not mail_password:
-        raise ValueError("MAIL_PASSWORD is not configured.")
+        with smtplib.SMTP(mail_server, mail_port) as smtp:
+            smtp.starttls()
+            smtp.login(mail_username, mail_password)
+            smtp.send_message(email)
 
-    email = EmailMessage()
+        logger.info("Email sent successfully to %s", to_email)
+        return {"status": "success", "message": "Email sent successfully."}
 
-    email["From"] = mail_username
-    email["To"] = to_email
-    email["Subject"] = subject
-
-    email.set_content(message)
-
-    with smtplib.SMTP(mail_server, mail_port) as smtp:
-
-        smtp.starttls()
-
-        smtp.login(
-            mail_username,
-            mail_password
-        )
-
-        smtp.send_message(email)
+    except Exception as error:
+        logger.error("Failed to send email to %s: %s", to_email, error)
+        return {"status": "error", "message": str(error)}
 
 
 def send_expiry_reminder(
@@ -50,95 +56,59 @@ def send_expiry_reminder(
 ):
     """
     Send a styled expiry reminder email.
+    Returns a status dictionary compatible with automatic reminder checks.
     """
-
     if reminder_level == "Upcoming":
-
         subject = f"Upcoming Expiry: {object_name}"
-
         title = "Your item is approaching expiry"
-
         status_text = "30 days remaining"
-
         status_class = "upcoming"
-
         message = (
             f"{object_name} will expire in 30 days. "
             "Please keep this item in mind."
         )
 
     elif reminder_level == "Urgent":
-
         subject = f"Urgent Expiry Reminder: {object_name}"
-
         title = "Your item is expiring soon"
-
         status_text = "7 days remaining"
-
         status_class = "urgent"
-
         message = (
             f"{object_name} will expire in 7 days. "
             "Please take the necessary action soon."
         )
 
     elif reminder_level == "Expires Today":
-
         subject = f"Expires Today: {object_name}"
-
         title = "Your item expires today"
-
         status_text = "Expires today"
-
         status_class = "today"
-
         message = (
             f"{object_name} expires today. "
             "Please check this item immediately."
         )
 
     else:
-
         subject = f"Expiry Reminder: {object_name}"
-
         title = "Expiry reminder"
-
-        status_text = (
-            f"{days_remaining} days remaining"
-        )
-
+        status_text = f"{days_remaining} days remaining"
         status_class = "default"
-
-        message = (
-            f"{object_name} has "
-            f"{days_remaining} days remaining."
-        )
-
+        message = f"{object_name} has {days_remaining} days remaining."
 
     html_content = f"""
 <!DOCTYPE html>
-
 <html>
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta name="viewport"
-      content="width=device-width, initial-scale=1.0">
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Expiry Tracker Reminder</title>
-
 </head>
-
-
 <body style="
     margin:0;
     padding:0;
     background:#f3f6fb;
     font-family:Arial,Helvetica,sans-serif;
 ">
-
 <table
     width="100%"
     cellpadding="0"
@@ -148,11 +118,8 @@ def send_expiry_reminder(
         padding:35px 15px;
     "
 >
-
 <tr>
-
 <td align="center">
-
 <table
     width="600"
     cellpadding="0"
@@ -167,24 +134,19 @@ def send_expiry_reminder(
     "
 >
 
-
 <!-- HEADER -->
-
 <tr>
-
 <td style="
     background:#24449a;
     padding:28px 30px;
     text-align:center;
 ">
-
 <div style="
     font-size:34px;
     line-height:40px;
 ">
     ⏰
 </div>
-
 <div style="
     color:#ffffff;
     font-size:25px;
@@ -193,7 +155,6 @@ def send_expiry_reminder(
 ">
     Expiry Tracker
 </div>
-
 <div style="
     color:#dce6ff;
     font-size:13px;
@@ -201,20 +162,14 @@ def send_expiry_reminder(
 ">
     Smart expiry management
 </div>
-
 </td>
-
 </tr>
 
-
 <!-- MAIN CONTENT -->
-
 <tr>
-
 <td style="
     padding:35px 35px 30px;
 ">
-
 <h1 style="
     margin:0 0 12px;
     color:#172033;
@@ -222,7 +177,6 @@ def send_expiry_reminder(
 ">
     {title}
 </h1>
-
 
 <p style="
     margin:0 0 22px;
@@ -235,9 +189,7 @@ def send_expiry_reminder(
     your stored item expires.
 </p>
 
-
 <!-- OBJECT CARD -->
-
 <table
     width="100%"
     cellpadding="0"
@@ -248,13 +200,10 @@ def send_expiry_reminder(
         background:#f8faff;
     "
 >
-
 <tr>
-
 <td style="
     padding:22px;
 ">
-
 <div style="
     color:#687587;
     font-size:12px;
@@ -265,7 +214,6 @@ def send_expiry_reminder(
     Object
 </div>
 
-
 <div style="
     color:#172033;
     font-size:21px;
@@ -275,50 +223,37 @@ def send_expiry_reminder(
     {object_name}
 </div>
 
-
 <div style="
     color:#536176;
     font-size:15px;
     line-height:1.8;
 ">
-
 <strong>
 Expiry Status:
 </strong>
-
 <span style="
     color:#24449a;
     font-weight:bold;
 ">
     {status_text}
 </span>
-
 </div>
-
 
 <div style="
     color:#536176;
     font-size:15px;
     line-height:1.8;
 ">
-
 <strong>
 Days Remaining:
 </strong>
-
 {days_remaining}
-
 </div>
-
 </td>
-
 </tr>
-
 </table>
 
-
 <!-- MESSAGE -->
-
 <div style="
     margin-top:22px;
     padding:18px 20px;
@@ -329,42 +264,30 @@ Days Remaining:
     font-size:14px;
     line-height:1.7;
 ">
-
 {message}
-
 </div>
 
-
 <!-- ACTION MESSAGE -->
-
 <p style="
     margin:24px 0 0;
     color:#536176;
     font-size:14px;
     line-height:1.7;
 ">
-
 Please open your Expiry Tracker and review the
 item before its expiry date.
-
 </p>
-
 </td>
-
 </tr>
 
-
 <!-- FOOTER -->
-
 <tr>
-
 <td style="
     background:#f7f9fc;
     padding:22px 30px;
     text-align:center;
     border-top:1px solid #e7ebf2;
 ">
-
 <div style="
     color:#24449a;
     font-size:14px;
@@ -372,7 +295,6 @@ item before its expiry date.
 ">
     Personal Expiry Tracker
 </div>
-
 
 <div style="
     color:#8994a4;
@@ -382,7 +304,6 @@ item before its expiry date.
     Stay organized. Never miss an expiry date.
 </div>
 
-
 <div style="
     color:#a0a8b5;
     font-size:11px;
@@ -390,25 +311,15 @@ item before its expiry date.
 ">
     This is an automatic reminder email.
 </div>
-
 </td>
-
 </tr>
-
-
 </table>
-
 </td>
-
 </tr>
-
 </table>
-
 </body>
-
 </html>
 """
-
 
     plain_text = f"""
 EXPIRY TRACKER
@@ -417,9 +328,7 @@ EXPIRY TRACKER
 {title}
 
 Object: {object_name}
-
 Status: {status_text}
-
 Days Remaining: {days_remaining}
 
 {message}
@@ -430,63 +339,45 @@ this item before its expiry date.
 This is an automatic reminder email.
 """
 
-
     mail_server = current_app.config.get("MAIL_SERVER")
     mail_port = current_app.config.get("MAIL_PORT")
     mail_username = current_app.config.get("MAIL_USERNAME")
     mail_password = current_app.config.get("MAIL_PASSWORD")
 
+    if not mail_server or not mail_username or not mail_password:
+        missing = []
+        if not mail_server:
+            missing.append("MAIL_SERVER")
+        if not mail_username:
+            missing.append("MAIL_USERNAME")
+        if not mail_password:
+            missing.append("MAIL_PASSWORD")
+        error_msg = f"Email service is not fully configured. Missing: {', '.join(missing)}"
+        logger.warning(error_msg)
+        return {"status": "error", "message": error_msg}
 
-    if not mail_server:
-        raise ValueError(
-            "MAIL_SERVER is not configured."
-        )
+    try:
+        email = EmailMessage()
+        email["From"] = mail_username
+        email["To"] = to_email
+        email["Subject"] = subject
+        email.set_content(plain_text)
+        email.add_alternative(html_content, subtype="html")
 
-    if not mail_username:
-        raise ValueError(
-            "MAIL_USERNAME is not configured."
-        )
+        with smtplib.SMTP(mail_server, mail_port) as smtp:
+            smtp.starttls()
+            smtp.login(mail_username, mail_password)
+            smtp.send_message(email)
 
-    if not mail_password:
-        raise ValueError(
-            "MAIL_PASSWORD is not configured."
-        )
+        logger.info("Expiry reminder email sent to %s for %s", to_email, object_name)
+        return {
+            "status": "success",
+            "message": "Expiry reminder email sent successfully."
+        }
 
-
-    email = EmailMessage()
-
-    email["From"] = mail_username
-
-    # This is the registered user's email.
-    email["To"] = to_email
-
-    email["Subject"] = subject
-
-
-    # Plain text fallback
-    email.set_content(plain_text)
-
-
-    # Styled HTML version
-    email.add_alternative(
-        html_content,
-        subtype="html"
-    )
-
-
-    with smtplib.SMTP(
-        mail_server,
-        mail_port
-    ) as smtp:
-
-        smtp.starttls()
-
-        smtp.login(
-            mail_username,
-            mail_password
-        )
-
-        smtp.send_message(email)
-
-
-    return True
+    except Exception as error:
+        logger.error("Failed to send expiry reminder to %s: %s", to_email, error)
+        return {
+            "status": "error",
+            "message": str(error)
+        }

@@ -23,8 +23,21 @@ def uploaded_file(filename):
 
     upload_folder = os.path.join(
         current_app.root_path,
-        current_app.config["UPLOAD_FOLDER"]
+        current_app.config.get("UPLOAD_FOLDER", "uploads")
     )
+
+    if os.path.exists(os.path.join(upload_folder, filename)):
+        return send_from_directory(
+            upload_folder,
+            filename
+        )
+
+    tmp_folder = "/tmp/uploads"
+    if os.path.exists(os.path.join(tmp_folder, filename)):
+        return send_from_directory(
+            tmp_folder,
+            filename
+        )
 
     return send_from_directory(
         upload_folder,

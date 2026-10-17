@@ -108,7 +108,11 @@
                 {% if object.image %}
                 <div class="pet-object-image-container">
                     <img
+                        {% if object.image.startswith('http://') or object.image.startswith('https://') %}
+                        src="{{ object.image }}"
+                        {% else %}
                         src="{{ url_for('upload.uploaded_file', filename=object.image) }}"
+                        {% endif %}
                         alt="{{ object.name }}"
                         class="pet-object-image"
                     >

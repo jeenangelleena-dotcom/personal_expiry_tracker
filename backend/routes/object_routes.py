@@ -15,8 +15,6 @@ from flask import (
     flash
 )
 
-from werkzeug.utils import secure_filename
-
 from models.object_model import (
     create_object,
     get_objects_by_user,
@@ -26,7 +24,7 @@ from models.object_model import (
 )
 
 from services.expiry_service import add_expiry_details
-
+from services.image_storage_service import save_image, delete_image
 from utils.auth import login_required
 
 
@@ -35,9 +33,10 @@ object_bp = Blueprint(
     __name__,
     url_prefix="/api/objects"
 )
-def allowed_file(filename):
 
-    if "." not in filename:
+
+def allowed_file(filename):
+    if not filename or "." not in filename:
         return False
 
     extension = filename.rsplit(
@@ -45,9 +44,15 @@ def allowed_file(filename):
         1
     )[1].lower()
 
-    return extension in current_app.config[
-        "ALLOWED_IMAGE_EXTENSIONS"
-    ]
+    return extension in current_app.config.get(
+        "ALLOWED_IMAGE_EXTENSIONS",
+        {"png", "jpg", "jpeg", "webp"}
+    )
+
+
+# ==================================================
+# ADD OBJECT PAGE
+# ==================================================
 
 @object_bp.route(
     "/add",
@@ -55,7 +60,6 @@ def allowed_file(filename):
 )
 @login_required
 def add_object_page():
-
     return render_template(
         "add_object.html"
     )
@@ -71,7 +75,6 @@ def add_object_page():
 )
 @login_required
 def objects_page():
-
     user_id = ObjectId(
         session["user_id"]
     )
@@ -81,7 +84,6 @@ def objects_page():
     )
 
     for item in objects:
-
         add_expiry_details(
             item
         )
@@ -102,7 +104,6 @@ def objects_page():
 )
 @login_required
 def create_object_page():
-
     name = request.form.get(
         "name",
         ""
@@ -128,211 +129,131 @@ def create_object_page():
         ""
     ).strip()
 
-
     # --------------------------------------------------
     # VALIDATION
     # --------------------------------------------------
 
     if not name:
-
         flash(
             "Object name is required.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.add_object_page"
-            )
+            url_for("objects.add_object_page")
         )
 
-
     if not category:
-
         flash(
             "Category is required.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.add_object_page"
-            )
+            url_for("objects.add_object_page")
         )
 
-
     if not expiry_date:
-
         flash(
             "Expiry date is required.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.add_object_page"
-            )
+            url_for("objects.add_object_page")
         )
 
-
     try:
-
         quantity = int(quantity)
-
         if quantity <= 0:
             raise ValueError
-
     except ValueError:
-
         flash(
             "Quantity must be a positive number.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.add_object_page"
-            )
+            url_for("objects.add_object_page")
         )
 
-
     try:
-
         datetime.strptime(
             expiry_date,
             "%Y-%m-%d"
         )
-
     except ValueError:
-
         flash(
             "Invalid expiry date.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.add_object_page"
-            )
+            url_for("objects.add_object_page")
         )
 
-
     # --------------------------------------------------
-    # IMAGE UPLOAD
+    # IMAGE UPLOAD (PERSISTENT / LOCAL FALLBACK)
     # --------------------------------------------------
 
-    image_filename = None
-
+    image_identifier = None
 
     if "image" in request.files:
-
         image = request.files["image"]
-
-
-        if image.filename:
-
-            if not allowed_file(
-                image.filename
-            ):
-
+        if image and image.filename:
+            if not allowed_file(image.filename):
                 flash(
-                    "Invalid image format. "
-                    "Use PNG, JPG, JPEG or WEBP.",
+                    "Invalid image format. Use PNG, JPG, JPEG or WEBP.",
                     "error"
                 )
-
                 return redirect(
-                    url_for(
-                        "objects.add_object_page"
-                    )
+                    url_for("objects.add_object_page")
                 )
 
-
-            image_filename = secure_filename(
-                image.filename
-            )
-
-
-            upload_folder = os.path.join(
-                current_app.root_path,
-                current_app.config[
-                    "UPLOAD_FOLDER"
-                ]
-            )
-
-
-            os.makedirs(
-                upload_folder,
-                exist_ok=True
-            )
-
-
-            image_path = os.path.join(
-                upload_folder,
-                image_filename
-            )
-
-
-            image.save(
-                image_path
-            )
-
+            try:
+                image_identifier = save_image(image)
+            except Exception as error:
+                flash(
+                    f"Image upload issue: {error}",
+                    "error"
+                )
+                return redirect(
+                    url_for("objects.add_object_page")
+                )
 
     # --------------------------------------------------
     # OBJECT DATA
     # --------------------------------------------------
 
     object_data = {
-
         "user_id": ObjectId(
             session["user_id"]
         ),
-
         "name": name,
-
         "category": category,
-
         "expiry_date": expiry_date,
-
         "quantity": quantity,
-
         "notes": notes,
-
-        "image": image_filename,
-
+        "image": image_identifier,
         "created_at": datetime.utcnow(),
-
         "updated_at": datetime.utcnow(),
-
         # Automatic reminder history
         "last_reminder_level": None,
-
         "last_reminder_date": None,
-
         "last_reminder_sent_at": None
     }
-
 
     create_object(
         object_data
     )
-
 
     flash(
         "Object added successfully.",
         "success"
     )
 
-
     return redirect(
-        url_for(
-            "objects.objects_page"
-        )
+        url_for("objects.objects_page")
     )
 
 
 # ==================================================
-# DELETE OBJECT FROM WEBSITE
+# DELETE OBJECT FROM WEBSITE (FORM ACTION)
 # ==================================================
 
 @object_bp.route(
@@ -340,121 +261,53 @@ def create_object_page():
     methods=["POST"]
 )
 @login_required
-def delete_object_page(
-    object_id
-):
-
+def delete_object_page(object_id):
     try:
-
-        object_id = ObjectId(
-            object_id
-        )
-
+        oid = ObjectId(object_id)
     except Exception:
-
         flash(
             "Invalid object ID.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.objects_page"
-            )
+            url_for("objects.objects_page")
         )
 
-
-    item = get_object_by_id(
-        object_id
-    )
-
+    item = get_object_by_id(oid)
 
     if not item:
-
         flash(
             "Object not found.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.objects_page"
-            )
+            url_for("objects.objects_page")
         )
 
-
-    if (
-        str(item["user_id"])
-        != session["user_id"]
-    ):
-
+    if str(item["user_id"]) != session["user_id"]:
         flash(
             "Access denied.",
             "error"
         )
-
         return redirect(
-            url_for(
-                "objects.objects_page"
-            )
+            url_for("objects.objects_page")
         )
 
+    # Delete associated image
+    image_identifier = item.get("image")
+    if image_identifier:
+        delete_image(image_identifier)
 
-    # --------------------------------------------------
-    # DELETE UPLOADED IMAGE
-    # --------------------------------------------------
-
-    image_filename = item.get(
-        "image"
-    )
-
-
-    if image_filename:
-
-        upload_folder = os.path.join(
-            current_app.root_path,
-            current_app.config[
-                "UPLOAD_FOLDER"
-            ]
-        )
-
-
-        image_path = os.path.join(
-            upload_folder,
-            image_filename
-        )
-
-
-        if os.path.exists(
-            image_path
-        ):
-
-            os.remove(
-                image_path
-            )
-
-
-    delete_object(
-        object_id
-    )
-
+    delete_object(oid)
 
     flash(
         "Object deleted successfully.",
         "success"
     )
 
-
     return redirect(
-        url_for(
-            "objects.objects_page"
-        )
+        url_for("objects.objects_page")
     )
-
-
-# ==================================================
-# API ROUTES
-# ==================================================
 
 
 # ==================================================
@@ -467,179 +320,88 @@ def delete_object_page(
 )
 @login_required
 def add_object():
-
-    name = request.form.get(
-        "name",
-        ""
-    ).strip()
-
-    category = request.form.get(
-        "category",
-        ""
-    ).strip()
-
-    expiry_date = request.form.get(
-        "expiry_date",
-        ""
-    ).strip()
-
-    quantity = request.form.get(
-        "quantity",
-        "1"
-    ).strip()
-
-    notes = request.form.get(
-        "notes",
-        ""
-    ).strip()
-
+    name = request.form.get("name", "").strip()
+    category = request.form.get("category", "").strip()
+    expiry_date = request.form.get("expiry_date", "").strip()
+    quantity = request.form.get("quantity", "1").strip()
+    notes = request.form.get("notes", "").strip()
 
     if not name:
-
         return jsonify({
             "status": "error",
             "message": "Object name is required"
         }), 400
 
-
     if not category:
-
         return jsonify({
             "status": "error",
             "message": "Category is required"
         }), 400
 
-
     if not expiry_date:
-
         return jsonify({
             "status": "error",
             "message": "Expiry date is required"
         }), 400
 
-
     try:
-
         quantity = int(quantity)
-
         if quantity <= 0:
             raise ValueError
-
     except ValueError:
-
         return jsonify({
             "status": "error",
             "message": "Quantity must be a positive number"
         }), 400
 
-
     try:
-
-        datetime.strptime(
-            expiry_date,
-            "%Y-%m-%d"
-        )
-
+        datetime.strptime(expiry_date, "%Y-%m-%d")
     except ValueError:
-
         return jsonify({
             "status": "error",
             "message": "Invalid expiry date"
         }), 400
 
-
-    image_filename = None
-
+    image_identifier = None
 
     if "image" in request.files:
-
         image = request.files["image"]
-
-
-        if image.filename:
-
-            if not allowed_file(
-                image.filename
-            ):
-
+        if image and image.filename:
+            if not allowed_file(image.filename):
                 return jsonify({
                     "status": "error",
                     "message": "Invalid image type"
                 }), 400
 
-
-            image_filename = secure_filename(
-                image.filename
-            )
-
-
-            upload_folder = os.path.join(
-                current_app.root_path,
-                current_app.config[
-                    "UPLOAD_FOLDER"
-                ]
-            )
-
-
-            os.makedirs(
-                upload_folder,
-                exist_ok=True
-            )
-
-
-            image.save(
-                os.path.join(
-                    upload_folder,
-                    image_filename
-                )
-            )
-
+            try:
+                image_identifier = save_image(image)
+            except Exception as error:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Image upload failed: {error}"
+                }), 500
 
     object_data = {
-
-        "user_id": ObjectId(
-            session["user_id"]
-        ),
-
+        "user_id": ObjectId(session["user_id"]),
         "name": name,
-
         "category": category,
-
         "expiry_date": expiry_date,
-
         "quantity": quantity,
-
         "notes": notes,
-
-        "image": image_filename,
-
+        "image": image_identifier,
         "created_at": datetime.utcnow(),
-
         "updated_at": datetime.utcnow(),
-
         "last_reminder_level": None,
-
         "last_reminder_date": None,
-
         "last_reminder_sent_at": None
     }
 
-
-    object_id = create_object(
-        object_data
-    )
-
+    object_id = create_object(object_data)
 
     return jsonify({
-
         "status": "success",
-
         "message": "Object added successfully",
-
-        "object_id": str(
-            object_id
-        )
-
+        "object_id": str(object_id)
     }), 201
 
 
@@ -653,76 +415,28 @@ def add_object():
 )
 @login_required
 def get_objects():
-
-    user_id = ObjectId(
-        session["user_id"]
-    )
-
-
-    objects = get_objects_by_user(
-        user_id
-    )
-
-
+    user_id = ObjectId(session["user_id"])
+    objects = get_objects_by_user(user_id)
     object_list = []
 
-
     for item in objects:
+        add_expiry_details(item)
 
-        # ------------------------------------------
-        # AUTOMATIC EXPIRY CALCULATION
-        # ------------------------------------------
+        item["_id"] = str(item["_id"])
+        item["user_id"] = str(item["user_id"])
 
-        add_expiry_details(
-            item
-        )
+        if "created_at" in item and item["created_at"]:
+            item["created_at"] = item["created_at"].isoformat()
 
+        if "updated_at" in item and item["updated_at"]:
+            item["updated_at"] = item["updated_at"].isoformat()
 
-        # ------------------------------------------
-        # CONVERT MONGODB VALUES
-        # ------------------------------------------
-
-        item["_id"] = str(
-            item["_id"]
-        )
-
-
-        item["user_id"] = str(
-            item["user_id"]
-        )
-
-
-        if "created_at" in item:
-
-            item["created_at"] = (
-                item["created_at"]
-                .isoformat()
-            )
-
-
-        if "updated_at" in item:
-
-            item["updated_at"] = (
-                item["updated_at"]
-                .isoformat()
-            )
-
-
-        object_list.append(
-            item
-        )
-
+        object_list.append(item)
 
     return jsonify({
-
         "status": "success",
-
-        "count": len(
-            object_list
-        ),
-
+        "count": len(object_list),
         "objects": object_list
-
     }), 200
 
 
@@ -735,85 +449,43 @@ def get_objects():
     methods=["GET"]
 )
 @login_required
-def get_single_object(
-    object_id
-):
-
+def get_single_object(object_id):
     try:
-
-        object_id = ObjectId(
-            object_id
-        )
-
+        oid = ObjectId(object_id)
     except Exception:
-
         return jsonify({
             "status": "error",
             "message": "Invalid object ID"
         }), 400
 
-
-    item = get_object_by_id(
-        object_id
-    )
-
+    item = get_object_by_id(oid)
 
     if not item:
-
         return jsonify({
             "status": "error",
             "message": "Object not found"
         }), 404
 
-
-    if (
-        str(item["user_id"])
-        != session["user_id"]
-    ):
-
+    if str(item["user_id"]) != session["user_id"]:
         return jsonify({
             "status": "error",
             "message": "Access denied"
         }), 403
 
+    add_expiry_details(item)
 
-    add_expiry_details(
-        item
-    )
+    item["_id"] = str(item["_id"])
+    item["user_id"] = str(item["user_id"])
 
+    if "created_at" in item and item["created_at"]:
+        item["created_at"] = item["created_at"].isoformat()
 
-    item["_id"] = str(
-        item["_id"]
-    )
-
-
-    item["user_id"] = str(
-        item["user_id"]
-    )
-
-
-    if "created_at" in item:
-
-        item["created_at"] = (
-            item["created_at"]
-            .isoformat()
-        )
-
-
-    if "updated_at" in item:
-
-        item["updated_at"] = (
-            item["updated_at"]
-            .isoformat()
-        )
-
+    if "updated_at" in item and item["updated_at"]:
+        item["updated_at"] = item["updated_at"].isoformat()
 
     return jsonify({
-
         "status": "success",
-
         "object": item
-
     }), 200
 
 
@@ -823,63 +495,41 @@ def get_single_object(
 
 @object_bp.route(
     "/<object_id>",
-    methods=["PUT"]
+    methods=["PUT", "POST"]
 )
 @login_required
-def edit_object(
-    object_id
-):
-
+def edit_object(object_id):
     try:
-
-        object_id = ObjectId(
-            object_id
-        )
-
+        oid = ObjectId(object_id)
     except Exception:
-
         return jsonify({
             "status": "error",
             "message": "Invalid object ID"
         }), 400
 
-
-    existing_object = get_object_by_id(
-        object_id
-    )
-
+    existing_object = get_object_by_id(oid)
 
     if not existing_object:
-
         return jsonify({
             "status": "error",
             "message": "Object not found"
         }), 404
 
-
-    if (
-        str(existing_object["user_id"])
-        != session["user_id"]
-    ):
-
+    if str(existing_object["user_id"]) != session["user_id"]:
         return jsonify({
             "status": "error",
             "message": "Access denied"
         }), 403
 
-
-    data = request.get_json(
-        silent=True
-    )
-
+    data = request.get_json(silent=True)
+    if not data and request.form:
+        data = request.form.to_dict()
 
     if not data:
-
         return jsonify({
             "status": "error",
-            "message": "JSON data is required"
+            "message": "Data is required to update object"
         }), 400
-
 
     allowed_fields = [
         "name",
@@ -889,101 +539,57 @@ def edit_object(
         "notes"
     ]
 
-
     update_data = {}
 
-
     for field in allowed_fields:
-
-        if field in data:
-
-            update_data[field] = data[
-                field
-            ]
-
+        if field in data and data[field] is not None:
+            update_data[field] = str(data[field]).strip()
 
     if not update_data:
-
         return jsonify({
             "status": "error",
             "message": "No valid fields to update"
         }), 400
 
-
     if "quantity" in update_data:
-
         try:
-
-            quantity = int(
-                update_data["quantity"]
-            )
-
+            quantity = int(update_data["quantity"])
             if quantity <= 0:
                 raise ValueError
-
             update_data["quantity"] = quantity
-
         except ValueError:
-
             return jsonify({
                 "status": "error",
                 "message": "Quantity must be positive"
             }), 400
 
-
     if "expiry_date" in update_data:
-
         try:
-
             datetime.strptime(
                 update_data["expiry_date"],
                 "%Y-%m-%d"
             )
-
         except ValueError:
-
             return jsonify({
                 "status": "error",
                 "message": "Invalid expiry date"
             }), 400
 
+        # Reset reminder history if expiry date changes
+        update_data["last_reminder_level"] = None
+        update_data["last_reminder_date"] = None
+        update_data["last_reminder_sent_at"] = None
 
-    update_data[
-        "updated_at"
-    ] = datetime.utcnow()
-
-
-    # --------------------------------------------------
-    # RESET REMINDER HISTORY IF EXPIRY DATE CHANGES
-    # --------------------------------------------------
-
-    if "expiry_date" in update_data:
-
-        update_data[
-            "last_reminder_level"
-        ] = None
-
-        update_data[
-            "last_reminder_date"
-        ] = None
-
-        update_data[
-            "last_reminder_sent_at"
-        ] = None
-
+    update_data["updated_at"] = datetime.utcnow()
 
     update_object(
-        object_id,
+        oid,
         update_data
     )
 
-
     return jsonify({
-
         "status": "success",
-
         "message": "Object updated successfully"
-
     }), 200
 
 
@@ -996,87 +602,36 @@ def edit_object(
     methods=["DELETE"]
 )
 @login_required
-def remove_object(
-    object_id
-):
-
+def remove_object(object_id):
     try:
-
-        object_id = ObjectId(
-            object_id
-        )
-
+        oid = ObjectId(object_id)
     except Exception:
-
         return jsonify({
             "status": "error",
             "message": "Invalid object ID"
         }), 400
 
-
-    existing_object = get_object_by_id(
-        object_id
-    )
-
+    existing_object = get_object_by_id(oid)
 
     if not existing_object:
-
         return jsonify({
             "status": "error",
             "message": "Object not found"
         }), 404
 
-
-    if (
-        str(existing_object["user_id"])
-        != session["user_id"]
-    ):
-
+    if str(existing_object["user_id"]) != session["user_id"]:
         return jsonify({
             "status": "error",
             "message": "Access denied"
         }), 403
 
+    image_identifier = existing_object.get("image")
+    if image_identifier:
+        delete_image(image_identifier)
 
-    image_filename = existing_object.get(
-        "image"
-    )
-
-
-    if image_filename:
-
-        upload_folder = os.path.join(
-            current_app.root_path,
-            current_app.config[
-                "UPLOAD_FOLDER"
-            ]
-        )
-
-
-        image_path = os.path.join(
-            upload_folder,
-            image_filename
-        )
-
-
-        if os.path.exists(
-            image_path
-        ):
-
-            os.remove(
-                image_path
-            )
-
-
-    delete_object(
-        object_id
-    )
-
+    delete_object(oid)
 
     return jsonify({
-
         "status": "success",
-
         "message": "Object deleted successfully"
-
     }), 200
